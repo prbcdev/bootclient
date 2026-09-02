@@ -43,16 +43,12 @@ import com.atlauncher.evnt.manager.RelocalizationManager;
 import com.atlauncher.evnt.manager.TabChangeManager;
 import com.atlauncher.gui.components.LauncherBottomBar;
 import com.atlauncher.gui.dialogs.InstanceInstallerDialog;
-import com.atlauncher.gui.tabs.AboutTab;
 import com.atlauncher.gui.tabs.CreatePackTab;
+import com.atlauncher.gui.tabs.HomeTab;
 import com.atlauncher.gui.tabs.InstancesTab;
 import com.atlauncher.gui.tabs.PacksBrowserTab;
-import com.atlauncher.gui.tabs.ServersTab;
 import com.atlauncher.gui.tabs.SettingsTab;
 import com.atlauncher.gui.tabs.Tab;
-import com.atlauncher.gui.tabs.accounts.AccountsTab;
-import com.atlauncher.gui.tabs.news.NewsTab;
-import com.atlauncher.gui.tabs.tools.ToolsTab;
 import com.atlauncher.managers.AccountManager;
 import com.atlauncher.managers.LogManager;
 import com.atlauncher.managers.PackManager;
@@ -168,13 +164,8 @@ public final class LauncherFrame extends JFrame implements RelocalizationListene
      * Setup the individual tabs used in the Launcher sidebar
      */
     private void setupTabs() {
-        tabbedPane = new JTabbedPane(JTabbedPane.RIGHT);
+        tabbedPane = new JTabbedPane(JTabbedPane.TOP);
         tabbedPane.setName("mainTabs");
-
-        PerformanceManager.start("newsTab");
-        NewsTab newsTab = new NewsTab();
-        this.tabs.put(UIConstants.LAUNCHER_NEWS_TAB, newsTab);
-        PerformanceManager.end("newsTab");
 
         PerformanceManager.start("createPackTab");
         CreatePackTab createPackTab = new CreatePackTab();
@@ -192,30 +183,15 @@ public final class LauncherFrame extends JFrame implements RelocalizationListene
         this.tabs.put(UIConstants.LAUNCHER_INSTANCES_TAB, instancesTab);
         PerformanceManager.end("instancesTab");
 
-        PerformanceManager.start("serversTab");
-        ServersTab serversTab = new ServersTab();
-        this.tabs.put(UIConstants.LAUNCHER_SERVERS_TAB, serversTab);
-        PerformanceManager.end("serversTab");
-
-        PerformanceManager.start("accountsTab");
-        AccountsTab accountsTab = new AccountsTab();
-        this.tabs.put(UIConstants.LAUNCHER_ACCOUNTS_TAB, accountsTab);
-        PerformanceManager.end("accountsTab");
-
-        PerformanceManager.start("toolsTab");
-        ToolsTab toolsTab = new ToolsTab();
-        this.tabs.put(UIConstants.LAUNCHER_TOOLS_TAB, toolsTab);
-        PerformanceManager.end("toolsTab");
+        PerformanceManager.start("homeTab");
+        HomeTab homeTab = new HomeTab();
+        this.tabs.put(UIConstants.LAUNCHER_ACCOUNTS_TAB, homeTab);
+        PerformanceManager.end("homeTab");
 
         PerformanceManager.start("settingsTab");
         SettingsTab settingsTab = new SettingsTab();
         this.tabs.put(UIConstants.LAUNCHER_SETTINGS_TAB, settingsTab);
         PerformanceManager.end("settingsTab");
-
-        PerformanceManager.start("aboutTab");
-        AboutTab aboutTab = new AboutTab();
-        PerformanceManager.end("aboutTab");
-        this.tabs.put(UIConstants.LAUNCHER_ABOUT_TAB, aboutTab);
 
         tabbedPane.setFont(App.THEME.getTabFont());
         for (Tab tab : this.tabs.values()) {

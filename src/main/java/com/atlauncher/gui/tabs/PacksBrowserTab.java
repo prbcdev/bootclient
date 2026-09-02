@@ -271,7 +271,7 @@ public final class PacksBrowserTab extends JPanel
 
         // tabs
 
-        platformTabbedPane.setTabPlacement(SwingConstants.LEFT);
+        platformTabbedPane.setTabPlacement(SwingConstants.TOP);
 
         int index = 0;
 

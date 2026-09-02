@@ -21,12 +21,8 @@ import java.awt.BorderLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.event.ItemEvent;
-import java.util.List;
-import java.util.Optional;
 
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JPanel;
 
 import org.mini2Dx.gettext.GetText;
@@ -34,37 +30,22 @@ import org.mini2Dx.gettext.GetText;
 import com.atlauncher.App;
 import com.atlauncher.FileSystem;
 import com.atlauncher.data.ConsoleState;
-import com.atlauncher.data.MicrosoftAccount;
 import com.atlauncher.evnt.listener.RelocalizationListener;
 import com.atlauncher.evnt.manager.ConsoleStateManager;
 import com.atlauncher.evnt.manager.RelocalizationManager;
-import com.atlauncher.gui.AccountsDropDownRenderer;
 import com.atlauncher.gui.dialogs.ProgressDialog;
-import com.atlauncher.managers.AccountManager;
 import com.atlauncher.network.Analytics;
 import com.atlauncher.network.analytics.AnalyticsEvent;
 import com.atlauncher.utils.OS;
-import com.atlauncher.utils.Pair;
-
-import io.reactivex.rxjava3.core.Observable;
 
 public class LauncherBottomBar extends BottomBar implements RelocalizationListener {
-    private final Observable<Pair<List<MicrosoftAccount>, Optional<MicrosoftAccount>>> accountState = Observable
-            .combineLatest(
-                    AccountManager.getAccountsObservable(),
-                    AccountManager.getSelectedAccountObservable(),
-                    Pair::new);
-    private boolean dontSave = false;
     private JButton toggleConsole;
     private JButton openFolder;
     private JButton checkForUpdates;
-    private JComboBox<MicrosoftAccount> username;
 
     public LauncherBottomBar() {
         JPanel leftSide = new JPanel();
         leftSide.setLayout(new GridBagLayout());
-        JPanel middle = new JPanel();
-        middle.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
 
         createButtons();
@@ -83,17 +64,8 @@ public class LauncherBottomBar extends BottomBar implements RelocalizationListen
         gbc.gridx++;
         leftSide.add(checkForUpdates, gbc);
 
-        gbc.gridx = 0;
-        gbc.gridy = GridBagConstraints.RELATIVE;
-        gbc.insets = new Insets(0, 0, 0, 5);
-        middle.add(username, gbc);
-
-        username.setVisible(!AccountManager.getAccounts().isEmpty());
-
         add(leftSide, BorderLayout.WEST);
-        add(middle, BorderLayout.CENTER);
         RelocalizationManager.addListener(this);
-        accountState.subscribe(accountsState -> reloadAccounts(accountsState.left(), accountsState.right()));
     }
 
     /**
@@ -111,14 +83,6 @@ public class LauncherBottomBar extends BottomBar implements RelocalizationListen
                 dialog.close();
             }));
             dialog.start();
-        });
-        username.addItemListener(e -> {
-            if (e.getStateChange() == ItemEvent.SELECTED) {
-                if (!dontSave) {
-                    Analytics.trackEvent(AnalyticsEvent.simpleEvent("switch_account"));
-                    AccountManager.switchAccount((MicrosoftAccount) username.getSelectedItem());
-                }
-            }
         });
         ConsoleStateManager.getObservable().subscribe(newState -> {
             if (newState == ConsoleState.OPEN) {
@@ -143,35 +107,6 @@ public class LauncherBottomBar extends BottomBar implements RelocalizationListen
 
         checkForUpdates = new JButton(GetText.tr("Check For Updates"));
         checkForUpdates.setName("checkForUpdates");
-
-        username = new JComboBox<>();
-        username.setName("accountSelector");
-        username.setRenderer(new AccountsDropDownRenderer());
-
-        for (MicrosoftAccount account : AccountManager.getAccounts()) {
-            username.addItem(account);
-        }
-
-        MicrosoftAccount active = AccountManager.getSelectedAccount();
-
-        if (active != null) {
-            username.setSelectedItem(active);
-        }
-    }
-
-    private void reloadAccounts(List<MicrosoftAccount> accounts, Optional<MicrosoftAccount> selectedAccount) {
-        dontSave = true;
-        username.removeAllItems();
-
-        for (MicrosoftAccount account : accounts) {
-            username.addItem(account);
-        }
-
-        selectedAccount.ifPresent(microsoftAccount -> username.setSelectedItem(microsoftAccount));
-
-        username.setVisible(!accounts.isEmpty());
-
-        dontSave = false;
     }
 
     @Override

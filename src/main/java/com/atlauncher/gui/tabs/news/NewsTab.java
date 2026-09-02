@@ -18,48 +18,29 @@
 package com.atlauncher.gui.tabs.news;
 
 import java.awt.BorderLayout;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 
 import javax.swing.JEditorPane;
-import javax.swing.JMenuItem;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
-import javax.swing.UIManager;
 import javax.swing.event.HyperlinkEvent;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.StyleSheet;
 
 import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.gui.panels.HierarchyPanel;
-import com.atlauncher.gui.panels.LoadingPanel;
 import com.atlauncher.gui.tabs.Tab;
 import com.atlauncher.utils.OS;
 import com.atlauncher.viewmodel.base.INewsViewModel;
 import com.atlauncher.viewmodel.impl.NewsViewModel;
 
 /**
- * This class extends {@link JPanel} and provides a Panel for displaying the
- * latest news.
+ * Slimmed-down news panel: fetches and displays the latest news as scrollable HTML.
+ * Deliberately uses no custom HTMLEditorKit/StyleSheet - same plain "text/html" JEditorPane
+ * approach as the License / Third Party Libraries tabs, so link color and font formatting
+ * stay consistent with the rest of the app instead of being overridden by a separate stylesheet.
  */
 public class NewsTab extends HierarchyPanel implements Tab {
-    private HTMLEditorKit NEWS_KIT;
-    private ContextMenu NEWS_MENU;
     private INewsViewModel viewModel;
+    private JEditorPane newsPane;
 
-    /**
-     * {@link JEditorPane} which contains all the news for this panel.
-     */
-    private JEditorPane NEWS_PANE;
-
-    /**
-     * Instantiates a new instance of this class which sets the layout and loads the
-     * content.
-     */
     public NewsTab() {
         super(new BorderLayout());
     }
@@ -71,79 +52,32 @@ public class NewsTab extends HierarchyPanel implements Tab {
 
     @Override
     protected void onShow() {
-        createNewsKit();
-        NEWS_MENU = new ContextMenu();
-        createNewsPane();
+        newsPane = new JEditorPane("text/html", GetText.tr("Loading news..."));
+        newsPane.setEditable(false);
+        newsPane.setFocusable(false);
+        newsPane.addHyperlinkListener(e -> {
+            if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                OS.openWebBrowser(e.getURL());
+            }
+        });
 
-        JScrollPane scrollPane = new JScrollPane(new LoadingPanel(GetText.tr("Loading news...")),
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        JScrollPane scrollPane = new JScrollPane(newsPane,
+            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-
-        this.add(scrollPane, BorderLayout.CENTER);
+        add(scrollPane, BorderLayout.CENTER);
 
         addDisposable(viewModel.getNewsHTML().subscribe(html -> {
             if (html.isPresent()) {
-                this.NEWS_PANE.setText("");
-                this.NEWS_PANE.setText(html.get());
-                this.NEWS_PANE.setCaretPosition(0);
-
-                scrollPane.setViewportView(this.NEWS_PANE);
+                newsPane.setText(html.get());
+                newsPane.setCaretPosition(0);
             }
         }));
     }
 
     @Override
     protected void onDestroy() {
-        NEWS_KIT = null;
-        NEWS_MENU = null;
-        NEWS_PANE = null;
+        newsPane = null;
         removeAll();
-    }
-
-    private void createNewsKit() {
-        NEWS_KIT = new HTMLEditorKit() {
-            {
-                StyleSheet styleSheet = new StyleSheet();
-
-                styleSheet.addRule(String.format("a { color: %s; }",
-                        Integer.toHexString(UIManager.getColor("News.linkColor").getRGB()).substring(2)));
-
-                styleSheet.addRule(String.format(
-                        "h2 { padding-left: 7px; padding-top: 8px; font-weight: bold; font-size: 14px; color: %s; }",
-                        Integer.toHexString(UIManager.getColor("News.headerColor").getRGB()).substring(2)));
-
-                styleSheet.addRule(
-                        "p { font-size: 10px; padding-left: 8px; padding-right: 8px; padding-top: 8px; padding-bottom: 8px; }");
-
-                this.setStyleSheet(styleSheet);
-            }
-        };
-    }
-
-    private void createNewsPane() {
-        NEWS_PANE = new JEditorPane("text/html;charset=UTF-8", "") {
-            {
-                this.setEditable(false);
-                this.setEditorKit(NEWS_KIT);
-                this.setFocusable(false);
-                this.addHyperlinkListener(e -> {
-                    if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
-                        OS.openWebBrowser(e.getURL());
-                    }
-                });
-                this.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseReleased(MouseEvent e) {
-                        if (NEWS_PANE.getSelectedText() != null) {
-                            if (e.getButton() == MouseEvent.BUTTON3) {
-                                NEWS_MENU.show(NEWS_PANE, e.getX(), e.getY());
-                            }
-                        }
-                    }
-                });
-            }
-        };
     }
 
     @Override
@@ -154,17 +88,5 @@ public class NewsTab extends HierarchyPanel implements Tab {
     @Override
     public String getAnalyticsScreenViewName() {
         return "News";
-    }
-
-    private final class ContextMenu extends JPopupMenu {
-
-        public ContextMenu() {
-            super();
-            JMenuItem COPY_ITEM = new JMenuItem(GetText.tr("Copy"));
-            COPY_ITEM.addActionListener(e -> {
-                StringSelection text = new StringSelection(NEWS_PANE.getSelectedText());
-                Toolkit.getDefaultToolkit().getSystemClipboard().setContents(text, null);
-            });
-        }
     }
 }
