@@ -18,24 +18,33 @@
 package com.atlauncher.gui.tabs;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import javax.annotation.Nullable;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
+import javax.swing.border.Border;
 
 import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.App;
 import com.atlauncher.gui.panels.HierarchyPanel;
-import com.atlauncher.gui.tabs.settings.BackupsSettingsTab;
+import com.atlauncher.gui.tabs.settings.BackupsAndLoggingSettingsTab;
 import com.atlauncher.gui.tabs.settings.CommandsSettingsTab;
 import com.atlauncher.gui.tabs.settings.EnvironmentVariablesTab;
 import com.atlauncher.gui.tabs.settings.GeneralSettingsTab;
 import com.atlauncher.gui.tabs.settings.JavaSettingsTab;
-import com.atlauncher.gui.tabs.settings.LoggingSettingsTab;
 import com.atlauncher.gui.tabs.settings.ModsSettingsTab;
 import com.atlauncher.gui.tabs.settings.NetworkSettingsTab;
 import com.atlauncher.network.Analytics;
@@ -49,16 +58,54 @@ import com.atlauncher.viewmodel.impl.settings.ModsSettingsViewModel;
 import com.atlauncher.viewmodel.impl.settings.NetworkSettingsViewModel;
 import com.atlauncher.viewmodel.impl.settings.SettingsViewModel;
 
+/**
+ * Settings tab: sub-tabs sit in a custom left-hand vertical button sidebar paired with a
+ * CardLayout content area. Backups and Logging are combined into one distinct sidebar entry
+ * (see BackupsAndLoggingSettingsTab) rather than each having their own, or being folded into
+ * General.
+ */
 public class SettingsTab extends HierarchyPanel implements Tab {
-    @Nullable
-    private JTabbedPane tabbedPane;
+
+    // same spacing constants as HomeTab, kept consistent across the app
+    private static final int GAP = 8;
+    private static final int PAD = 8;
+
+    private static final int SIDEBAR_WIDTH = 220;
+    private static final int SIDEBAR_BUTTON_HEIGHT = 44;
+    private static final float SIDEBAR_FONT_SIZE = 17.0F;
+
+    private static final Border BOX_BORDER = BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"), 1),
+        BorderFactory.createEmptyBorder(PAD, PAD, PAD, PAD));
+
+    // regular bordered outline for sidebar/save buttons, matching the box style
+    private static final Border BUTTON_BORDER_NORMAL = BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"), 1),
+        BorderFactory.createEmptyBorder(8, 12, 8, 12));
+    // same outline, but in the theme's green accent, used on the currently selected sub-tab
+    private static final Border BUTTON_BORDER_SELECTED = BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(accentColor(), 2),
+        BorderFactory.createEmptyBorder(7, 11, 7, 11));
+
+    private static Color accentColor() {
+        // TabbedPane.underlineColor is explicitly set to the theme's green primary color
+        // (see Dark.properties) - Component.accentColor/focusColor are FlatLaf's generic
+        // defaults and stay blue unless separately overridden, so this is the reliable source.
+        Color themeGreen = UIManager.getColor("TabbedPane.underlineColor");
+        if (themeGreen != null) {
+            return themeGreen;
+        }
+
+        Color accent = UIManager.getColor("Component.accentColor");
+        return accent != null ? accent : UIManager.getColor("Component.focusColor");
+    }
+
     @Nullable
     private JButton saveButton;
 
     private SettingsViewModel viewModel;
 
-    // We maintain the state at the top level for all tabs
-
+    // state maintained at the top level for all sub-tabs
     private BackupsSettingsViewModel backupSettingsViewModel;
     private CommandsSettingsViewModel commandsSettingsViewModel;
     private GeneralSettingsViewModel generalSettingsViewModel;
@@ -69,23 +116,13 @@ public class SettingsTab extends HierarchyPanel implements Tab {
     private NetworkSettingsViewModel networkSettingsViewModel;
 
     @Nullable
-    private GeneralSettingsTab generalSettingsTab;
-    @Nullable
-    private ModsSettingsTab modsSettingsTab;
-    @Nullable
-    private JavaSettingsTab javaSettingsTab;
-    @Nullable
-    private EnvironmentVariablesTab environmentVariablesTab;
-    @Nullable
-    private NetworkSettingsTab networkSettingsTab;
-    @Nullable
-    private LoggingSettingsTab loggingSettingsTab;
-    @Nullable
-    private BackupsSettingsTab backupsSettingsTab;
-    @Nullable
-    private CommandsSettingsTab commandSettingsTab;
-    @Nullable
     private List<Tab> tabs;
+    @Nullable
+    private List<JButton> sidebarButtons;
+    @Nullable
+    private CardLayout cardLayout;
+    @Nullable
+    private JPanel cardPanel;
 
     private int selectedTabIndex = 0;
 
@@ -110,61 +147,117 @@ public class SettingsTab extends HierarchyPanel implements Tab {
     @SuppressWarnings("null")
     @Override
     protected void onShow() {
-        saveButton = new JButton(GetText.tr("Save"));
-        tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+        JPanel container = new JPanel(new BorderLayout());
+        container.setBorder(BorderFactory.createEmptyBorder(GAP, GAP, GAP, GAP));
 
-        tabbedPane.setFont(App.THEME.getNormalFont().deriveFont(17.0F));
+        container.add(buildSettingsRow(), BorderLayout.CENTER);
 
-        generalSettingsTab = new GeneralSettingsTab(generalSettingsViewModel);
-        modsSettingsTab = new ModsSettingsTab(modsSettingsViewModel);
-        javaSettingsTab = new JavaSettingsTab(javaSettingsViewModel);
-        networkSettingsTab = new NetworkSettingsTab(networkSettingsViewModel);
-        loggingSettingsTab = new LoggingSettingsTab(loggingSettingsViewModel);
-        backupsSettingsTab = new BackupsSettingsTab(backupSettingsViewModel);
-        commandSettingsTab = new CommandsSettingsTab(commandsSettingsViewModel);
-        environmentVariablesTab = new EnvironmentVariablesTab(environmentVariablesViewModel);
+        add(container, BorderLayout.CENTER);
+    }
+
+    /** Two separate boxed panels side by side: the sidebar, and the settings content area. */
+    private JPanel buildSettingsRow() {
+        JPanel row = new JPanel(new BorderLayout(GAP, 0));
+
         tabs = Arrays.asList(
-                new Tab[] { this.generalSettingsTab, this.modsSettingsTab, this.javaSettingsTab,
-                        this.networkSettingsTab, this.loggingSettingsTab, this.backupsSettingsTab,
-                        this.commandSettingsTab, this.environmentVariablesTab });
+            new GeneralSettingsTab(generalSettingsViewModel),
+            new ModsSettingsTab(modsSettingsViewModel),
+            new JavaSettingsTab(javaSettingsViewModel),
+            new NetworkSettingsTab(networkSettingsViewModel),
+            new BackupsAndLoggingSettingsTab(backupSettingsViewModel, loggingSettingsViewModel),
+            new CommandsSettingsTab(commandsSettingsViewModel),
+            new EnvironmentVariablesTab(environmentVariablesViewModel));
 
-        for (Tab tab : this.tabs) {
-            this.tabbedPane.addTab(tab.getTitle(), (JPanel) tab);
+        cardLayout = new CardLayout();
+        cardPanel = new JPanel(cardLayout);
+        for (int i = 0; i < tabs.size(); i++) {
+            cardPanel.add((JPanel) tabs.get(i), String.valueOf(i));
         }
-        tabbedPane.setOpaque(true);
-        tabbedPane.setSelectedIndex(selectedTabIndex);
 
-        add(tabbedPane, BorderLayout.CENTER);
+        JPanel contentBox = new JPanel(new BorderLayout());
+        contentBox.setBorder(BOX_BORDER);
+        contentBox.add(cardPanel, BorderLayout.CENTER);
 
-        JPanel bottomPanel = new JPanel();
-        bottomPanel.add(saveButton);
+        row.add(buildSidebarBox(), BorderLayout.WEST);
+        row.add(contentBox, BorderLayout.CENTER);
 
-        add(bottomPanel, BorderLayout.SOUTH);
+        selectTab(selectedTabIndex);
+
+        return row;
+    }
+
+    /**
+     * Its own boxed panel: sub-tab buttons stacked top-down, then a single glue that pushes
+     * Save to the very bottom of the same box - dense, no separate bottom bar needed.
+     */
+    private JPanel buildSidebarBox() {
+        JPanel box = new JPanel(new BorderLayout());
+        box.setBorder(BOX_BORDER);
+        box.setPreferredSize(new Dimension(SIDEBAR_WIDTH, 0));
+
+        JPanel list = new JPanel();
+        list.setLayout(new BoxLayout(list, BoxLayout.PAGE_AXIS));
+        list.setOpaque(false);
+
+        sidebarButtons = new ArrayList<>();
+        for (int i = 0; i < tabs.size(); i++) {
+            int index = i;
+            JButton button = new JButton(tabs.get(i).getTitle());
+            styleSidebarButton(button);
+            button.addActionListener(e -> selectTab(index));
+
+            sidebarButtons.add(button);
+            list.add(button);
+            list.add(Box.createVerticalStrut(GAP));
+        }
+
+        // pushes Save to the bottom of the box, filling whatever space is left
+        list.add(Box.createVerticalGlue());
+
+        saveButton = new JButton(GetText.tr("Save"));
+        styleSidebarButton(saveButton);
         addDisposable(viewModel.getSaveEnabled().subscribe(saveButton::setEnabled));
-        saveButton.addActionListener(arg0 -> viewModel.save());
+        saveButton.addActionListener(e -> viewModel.save());
+        list.add(saveButton);
 
-        tabbedPane.addChangeListener(e -> {
-            selectedTabIndex = tabbedPane.getSelectedIndex();
-            Analytics.sendScreenView(
-                    ((Tab) tabbedPane.getSelectedComponent()).getAnalyticsScreenViewName() + " Settings");
-        });
+        box.add(list, BorderLayout.CENTER);
+        return box;
+    }
+
+    /** Applies the shared fixed size, font, and default (unselected) bordered outline. */
+    private void styleSidebarButton(JButton button) {
+        button.setFont(App.THEME.getNormalFont().deriveFont(SIDEBAR_FONT_SIZE));
+        button.setHorizontalAlignment(SwingConstants.CENTER);
+        button.setAlignmentX(Component.CENTER_ALIGNMENT);
+        button.setFocusPainted(false);
+        button.setBorder(BUTTON_BORDER_NORMAL);
+
+        Dimension size = new Dimension(SIDEBAR_WIDTH - (PAD * 2), SIDEBAR_BUTTON_HEIGHT);
+        button.setPreferredSize(size);
+        button.setMaximumSize(size);
+        button.setMinimumSize(size);
+    }
+
+    /** Switches the visible card and updates which sidebar button shows the accent outline. */
+    private void selectTab(int index) {
+        selectedTabIndex = index;
+        cardLayout.show(cardPanel, String.valueOf(index));
+
+        for (int i = 0; i < sidebarButtons.size(); i++) {
+            sidebarButtons.get(i).setBorder(i == index ? BUTTON_BORDER_SELECTED : BUTTON_BORDER_NORMAL);
+        }
+
+        Analytics.sendScreenView(tabs.get(index).getAnalyticsScreenViewName() + " Settings");
     }
 
     @Override
     protected void onDestroy() {
         removeAll();
-        tabbedPane = null;
         saveButton = null;
-
-        generalSettingsTab = null;
-        modsSettingsTab = null;
-        javaSettingsTab = null;
-        environmentVariablesTab = null;
-        networkSettingsTab = null;
-        loggingSettingsTab = null;
-        backupsSettingsTab = null;
-        commandSettingsTab = null;
         tabs = null;
+        sidebarButtons = null;
+        cardLayout = null;
+        cardPanel = null;
     }
 
     @Override

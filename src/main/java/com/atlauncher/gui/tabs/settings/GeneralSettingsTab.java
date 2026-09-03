@@ -36,7 +36,6 @@ import javax.swing.JTextField;
 import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.builders.HTMLBuilder;
-import com.atlauncher.constants.Constants;
 import com.atlauncher.constants.UIConstants;
 import com.atlauncher.data.CheckState;
 import com.atlauncher.data.LauncherTheme;
@@ -44,7 +43,6 @@ import com.atlauncher.gui.components.JLabelWithHover;
 import com.atlauncher.listener.DelayedSavingKeyListener;
 import com.atlauncher.managers.DialogManager;
 import com.atlauncher.utils.ComboItem;
-import com.atlauncher.utils.OS;
 import com.atlauncher.utils.Utils;
 import com.atlauncher.utils.sort.InstanceSortingStrategies;
 import com.atlauncher.viewmodel.impl.settings.GeneralSettingsViewModel;
@@ -73,24 +71,14 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         gbc.insets = UIConstants.FIELD_INSETS;
         gbc.anchor = GridBagConstraints.BASELINE_LEADING;
 
-        JPanel languagePanel = new JPanel();
-        languagePanel.setLayout(new BoxLayout(languagePanel, BoxLayout.X_AXIS));
-
         JComboBox<String> language = new JComboBox<>(viewModel.getLanguages());
         language.addItemListener(itemEvent -> {
             if (itemEvent.getStateChange() == ItemEvent.SELECTED)
                 viewModel.setSelectedLanguage((String) itemEvent.getItem());
         });
         addDisposable(viewModel.getSelectedLanguage().subscribe(language::setSelectedItem));
-        languagePanel.add(language);
 
-        languagePanel.add(Box.createHorizontalStrut(5));
-
-        JButton translateButton = new JButton(GetText.tr("Help Translate"));
-        translateButton.addActionListener(e -> OS.openWebBrowser(Constants.CROWDIN_URL));
-        languagePanel.add(translateButton);
-
-        add(languagePanel, gbc);
+        add(language, gbc);
 
         // Theme
 
@@ -184,41 +172,6 @@ public class GeneralSettingsTab extends AbstractSettingsTab {
         });
 
         add(instanceTitleFormat, gbc);
-
-        // Selected tab on startup
-
-        gbc.gridx = 0;
-        gbc.gridy++;
-        gbc.insets = UIConstants.LABEL_INSETS;
-        gbc.anchor = GridBagConstraints.BASELINE_TRAILING;
-
-        JLabelWithHover selectedTabOnStartupLabel = new JLabelWithHover(GetText.tr("Default Tab") + ":", HELP_ICON,
-                GetText.tr("Which tab to have selected by default when opening the launcher."));
-
-        add(selectedTabOnStartupLabel, gbc);
-
-        gbc.gridx++;
-        gbc.insets = UIConstants.FIELD_INSETS;
-        gbc.anchor = GridBagConstraints.BASELINE_LEADING;
-        JComboBox<ComboItem<Integer>> selectedTabOnStartup = new JComboBox<>();
-        selectedTabOnStartup.addItem(new ComboItem<>(UIConstants.LAUNCHER_NEWS_TAB, GetText.tr("News")));
-        selectedTabOnStartup
-                .addItem(new ComboItem<>(UIConstants.LAUNCHER_CREATE_PACK_TAB, GetText.tr("Create Pack")));
-        selectedTabOnStartup.addItem(new ComboItem<>(UIConstants.LAUNCHER_PACKS_TAB, GetText.tr("Packs")));
-        selectedTabOnStartup.addItem(new ComboItem<>(UIConstants.LAUNCHER_INSTANCES_TAB, GetText.tr("Instances")));
-        selectedTabOnStartup.addItem(new ComboItem<>(UIConstants.LAUNCHER_SERVERS_TAB, GetText.tr("Servers")));
-        selectedTabOnStartup.addItem(new ComboItem<>(UIConstants.LAUNCHER_ACCOUNTS_TAB, GetText.tr("Accounts")));
-        selectedTabOnStartup.addItem(new ComboItem<>(UIConstants.LAUNCHER_TOOLS_TAB, GetText.tr("Tools")));
-        selectedTabOnStartup.addItem(new ComboItem<>(UIConstants.LAUNCHER_SETTINGS_TAB, GetText.tr("Settings")));
-
-        addDisposable(viewModel.getSelectedTabOnStartup().subscribe(selectedTabOnStartup::setSelectedIndex));
-
-        selectedTabOnStartup.addItemListener(itemEvent -> {
-            if (itemEvent.getStateChange() == ItemEvent.SELECTED)
-                viewModel.setSelectedTabOnStartup(((ComboItem<Integer>) itemEvent.getItem()).getValue());
-        });
-
-        add(selectedTabOnStartup, gbc);
 
         // Default instance sorting
 

@@ -65,30 +65,21 @@ import com.atlauncher.viewmodel.base.IAccountsViewModel;
 import com.atlauncher.viewmodel.impl.AboutTabViewModel;
 import com.atlauncher.viewmodel.impl.AccountsViewModel;
 
-/**
- * Merged homepage tab. Left side: account login/skin/switcher (from AccountsTab).
- * Right side: launcher info/contributors (top box) + News/License/Third Party Libraries
- * tabs (bottom box), split 50/50, matching the left column's box styling.
- */
 public class HomeTab extends HierarchyPanel implements Tab {
 
-    // ---- shared spacing constants, used everywhere for consistency ----
-    private static final int GAP = 8;   // space between boxes / window edges
-    private static final int PAD = 8;   // internal padding inside each box
+    private static final int GAP = 8;
+    private static final int PAD = 8;
 
-    // ---- contributors: simple two-column list of name links, no avatars/cards ----
     private static final int CONTRIBUTOR_COLUMNS = 2;
     private static final int CONTRIBUTOR_COLUMN_GAP = 24;
     private static final int CONTRIBUTOR_ROW_GAP = 4;
 
-    // shared box border style: faint line + internal padding
     private static final Border BOX_BORDER = BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"), 1),
         BorderFactory.createEmptyBorder(PAD, PAD, PAD, PAD));
 
-    // ---- accounts (left side) ----
     private IAccountsViewModel accountsViewModel;
-    private JEditorPane infoTextPane;
+    private JLabel infoTextPane;
     private JLabel userSkin;
     private JComboBox<ComboItem<String>> accountsComboBox;
     private JButton deleteButton;
@@ -98,7 +89,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
     private JMenuItem refreshAccessTokenMenuItem;
     private JPopupMenu contextMenu;
 
-    // ---- about (right side) ----
     private IAboutTabViewModel aboutViewModel;
     private JPanel authorsList;
 
@@ -145,23 +135,18 @@ public class HomeTab extends HierarchyPanel implements Tab {
         selectPersistedAccount();
     }
 
-    // ================= shared helpers =================
-
-    /** A JPanel using the standard box border (faint line + PAD internal padding). */
     private JPanel boxedPanel(LayoutManager layout) {
         JPanel panel = new JPanel(layout);
         panel.setBorder(BOX_BORDER);
         return panel;
     }
 
-    /** A thin horizontal rule, capped at 3px tall, spanning the full width. */
     private JSeparator thinSeparator() {
         JSeparator sep = new JSeparator();
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3));
         return sep;
     }
 
-    /** Appends a "title + glue + thin separator" header row to a PAGE_AXIS box. */
     private void addHeader(JPanel target, JComponent title) {
         Box row = Box.createHorizontalBox();
         row.add(title);
@@ -170,10 +155,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         target.add(thinSeparator());
     }
 
-    /**
-     * Wraps a component in a BorderLayout.WEST anchor so it's reliably pinned to the left
-     * edge of its parent, regardless of BoxLayout cross-axis alignment quirks.
-     */
     private JPanel leftAnchored(Component content) {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
@@ -181,7 +162,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         return wrapper;
     }
 
-    /** Centered HTML wrapper, used for both info-box states so formatting stays identical. */
     private String centeredHtml(String text) {
         return new HTMLBuilder().center().text(text).build();
     }
@@ -192,24 +172,19 @@ public class HomeTab extends HierarchyPanel implements Tab {
         JPanel leftPanel = new JPanel();
         leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.PAGE_AXIS));
 
-        // ---- box 1: info text ----
-        JPanel infoBox = boxedPanel(new BorderLayout());
+        JPanel infoBox = boxedPanel(new GridBagLayout());
         infoBox.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        infoTextPane = new JEditorPane("text/html",
-            centeredHtml(GetText.tr("Login with your Minecraft account to get started.")));
-        infoTextPane.setEditable(false);
-        infoTextPane.setFocusable(false);
-        infoTextPane.setOpaque(false);
-        infoTextPane.addHyperlinkListener(this::openLink);
-        infoBox.add(infoTextPane, BorderLayout.CENTER);
-        // fixed height, based on the default text, so later text swaps don't resize it
+        infoTextPane = new JLabel(centeredHtml(GetText.tr("Login with your Minecraft account to get started.")));
+        infoTextPane.setHorizontalAlignment(SwingConstants.CENTER);
+        infoTextPane.setFont(App.THEME.getNormalFont());
+        infoBox.add(infoTextPane);
+
         infoBox.setMaximumSize(new Dimension(Integer.MAX_VALUE,
             infoTextPane.getPreferredSize().height + (PAD * 2) + 4));
         leftPanel.add(infoBox);
         leftPanel.add(Box.createVerticalStrut(GAP));
 
-        // ---- box 2: skin preview + account dropdown (centered, stable) + delete ----
         JPanel skinBox = boxedPanel(new BorderLayout());
         skinBox.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -225,7 +200,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         leftPanel.add(skinBox);
         leftPanel.add(Box.createVerticalStrut(GAP));
 
-        // ---- box 3: sign in with microsoft ----
         JPanel buttonBox = boxedPanel(new GridBagLayout());
         buttonBox.setAlignmentX(Component.CENTER_ALIGNMENT);
         buttonBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, buttonBox.getPreferredSize().height));
@@ -247,7 +221,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         return leftPanel;
     }
 
-    /** Right-click menu on the skin preview (change/reload skin, update username, refresh token). */
     private void setupSkinContextMenu() {
         contextMenu = new JPopupMenu();
 
@@ -282,11 +255,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         }
     }
 
-    /**
-     * Dropdown row: combo box stays truly centered via a spacer that always matches
-     * deleteButtonHolder's width (blank card == button width), so Delete appearing/
-     * disappearing never shifts the dropdown.
-     */
     private JPanel buildAccountRow() {
         deleteButton = new JButton(GetText.tr("Delete"));
         deleteButton.addActionListener(e -> onDeleteAccount());
@@ -423,11 +391,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         });
     }
 
-    /**
-     * Restores whichever account AccountManager currently has active, instead of always
-     * defaulting to "Add An Account" on tab load. Falls back to index 0 if no account is
-     * currently selected (fresh install, or the selected account was deleted).
-     */
     private void selectPersistedAccount() {
         MicrosoftAccount selected = AccountManager.getSelectedAccount();
         int indexToSelect = 0;
@@ -446,7 +409,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
 
     // ================= ABOUT (right) =================
 
-    /** Right-hand column: two boxes split 50/50, same GAP between them as the left column. */
     private JPanel buildAboutColumn() {
         JPanel column = new JPanel(new GridLayout(2, 1, 0, GAP));
         column.add(buildAboutInfoBox());
@@ -454,22 +416,15 @@ public class HomeTab extends HierarchyPanel implements Tab {
         return column;
     }
 
-    /**
-     * Top box: launcher title, version/OS/Java info, and contributors list. Title and version
-     * info are separate, independently left-anchored blocks so they can't interfere with
-     * each other's alignment.
-     */
     private JPanel buildAboutInfoBox() {
         JPanel box = new JPanel();
         box.setBorder(BOX_BORDER);
         box.setLayout(new BoxLayout(box, BoxLayout.PAGE_AXIS));
 
-        // --- title row ---
         JLabel titleLabel = new JLabel(Constants.LAUNCHER_NAME);
         titleLabel.setFont(ATLauncherLaf.getInstance().getTitleFont());
         addHeader(box, titleLabel);
 
-        // --- version/OS/Java info, left-anchored ---
         JTextPane textInfo = new JTextPane();
         textInfo.setText(aboutViewModel.getInfo());
         textInfo.setEditable(false);
@@ -481,7 +436,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         box.add(textInfoWrapper);
         box.add(Box.createVerticalStrut(PAD / 2));
 
-        // --- contributors: simple two-column list of name links ---
         JLabel contributorsLabel = new JLabel(GetText.tr("Contributors"));
         contributorsLabel.setFont(ATLauncherLaf.getInstance().getTitleFont());
         addHeader(box, contributorsLabel);
@@ -503,7 +457,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         return box;
     }
 
-    /** Bottom box: News / License / Third Party Libraries tabs. */
     private JPanel buildAboutLicenseBox() {
         JPanel box = boxedPanel(new BorderLayout());
 
@@ -516,7 +469,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         return box;
     }
 
-    /** Loads a text resource (LICENSE / THIRDPARTYLIBRARIES) into a scrollable HTML panel. */
     private JPanel buildResourceTabPanel(String resourcePath) {
         JEditorPane textPane = new JEditorPane("text/html", "");
         textPane.setEditable(false);
@@ -547,11 +499,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         }
     }
 
-    /**
-     * Renders contributors as a simple two-column grid of clickable name links - no avatars,
-     * no bordered cards. GridLayout wraps to a new row automatically after CONTRIBUTOR_COLUMNS
-     * entries, and the whole thing scrolls vertically if it doesn't fit.
-     */
     private void renderAuthors(List<Contributor> contributors) {
         for (Contributor contributor : contributors) {
             authorsList.add(buildContributorLink(contributor));
@@ -563,7 +510,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         });
     }
 
-    /** A single contributor's name as a plain, left-aligned clickable link. */
     private JEditorPane buildContributorLink(Contributor contributor) {
         JEditorPane link = new JEditorPane("text/html",
             "<html><a href=\"" + contributor.url + "\">" + contributor.name + "</a></html>");
@@ -573,8 +519,6 @@ public class HomeTab extends HierarchyPanel implements Tab {
         link.addHyperlinkListener(this::openLink);
         return link;
     }
-
-    // ================= Tab interface =================
 
     @Override
     public String getTitle() {
