@@ -28,14 +28,14 @@ import com.atlauncher.data.BackupMode;
 import com.atlauncher.data.CheckState;
 import com.atlauncher.evnt.listener.SettingsListener;
 import com.atlauncher.evnt.manager.SettingsManager;
-import com.atlauncher.gui.tabs.settings.BackupsSettingsTab;
+import com.atlauncher.gui.tabs.settings.BackupsAndLoggingSettingsTab;
 import com.gitlab.doomsdayrs.lib.rxswing.schedulers.SwingSchedulers;
 
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.BehaviorSubject;
 
 /**
- * View model for {@link BackupsSettingsTab}
+ * View model for {@link BackupsAndLoggingSettingsTab}
  */
 public class BackupsSettingsViewModel implements SettingsListener {
     private final BehaviorSubject<Integer> backupMode = BehaviorSubject.create();

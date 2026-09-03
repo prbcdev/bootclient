@@ -17,29 +17,42 @@
  */
 package com.atlauncher.gui.panels.packbrowser;
 
-import java.awt.GridBagConstraints;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
 
 import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.builders.HTMLBuilder;
-import com.atlauncher.constants.UIConstants;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.data.minecraft.VersionManifestVersionType;
 import com.atlauncher.data.technic.TechnicModpackSlim;
 import com.atlauncher.gui.card.NilCard;
-import com.atlauncher.gui.card.packbrowser.TechnicPackCard;
+import com.atlauncher.gui.card.packbrowser.PackCard;
+import com.atlauncher.gui.components.BackgroundImageLabel;
+import com.atlauncher.gui.dialogs.InstanceInstallerDialog;
 import com.atlauncher.managers.ConfigManager;
+import com.atlauncher.network.Analytics;
+import com.atlauncher.network.analytics.AnalyticsEvent;
 import com.atlauncher.utils.TechnicApi;
 
 public class TechnicPacksPanel extends PackBrowserPlatformPanel {
-    GridBagConstraints gbc = new GridBagConstraints();
+
+    private PackCard buildCard(TechnicModpackSlim pack) {
+        BackgroundImageLabel image = new BackgroundImageLabel(pack.iconUrl, PackCard.CARD_WIDTH,
+                PackCard.IMAGE_HEIGHT);
+        String description = new HTMLBuilder().text(pack.name).build();
+
+        return new PackCard(pack.name, image, description, "technic",
+                () -> {
+                    Analytics.trackEvent(AnalyticsEvent.forPackInstall(pack));
+                    new InstanceInstallerDialog(pack).setVisible(true);
+                },
+                pack.url);
+    }
 
     @Override
     protected void loadPacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
@@ -52,29 +65,18 @@ public class TechnicPacksPanel extends PackBrowserPlatformPanel {
             packs = TechnicApi.searchModpacks(search).modpacks;
         }
 
+        contentPanel.removeAll();
+
         if (packs == null || packs.isEmpty()) {
-            contentPanel.removeAll();
             contentPanel.add(
                     new NilCard(new HTMLBuilder().text(GetText
                             .tr("There are no packs to display.<br/><br/>Try removing your search query and try again."))
-                            .build()),
-                    gbc);
+                            .build()));
             return;
         }
 
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.insets = UIConstants.FIELD_INSETS;
-        gbc.fill = GridBagConstraints.BOTH;
-
-        List<TechnicPackCard> cards = packs.stream().map(TechnicPackCard::new).collect(Collectors.toList());
-
-        contentPanel.removeAll();
-
-        for (TechnicPackCard card : cards) {
-            contentPanel.add(card, gbc);
-            gbc.gridy++;
+        for (TechnicModpackSlim pack : packs) {
+            contentPanel.add(buildCard(pack));
         }
     }
 

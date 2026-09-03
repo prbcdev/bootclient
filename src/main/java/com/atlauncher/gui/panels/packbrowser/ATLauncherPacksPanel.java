@@ -17,7 +17,8 @@
  */
 package com.atlauncher.gui.panels.packbrowser;
 
-import java.awt.GridBagConstraints;
+import java.awt.Graphics;
+import java.awt.Image;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -26,23 +27,26 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import javax.swing.JComponent;
 import javax.swing.JPanel;
 
 import org.joda.time.format.ISODateTimeFormat;
 import org.mini2Dx.gettext.GetText;
 
 import com.atlauncher.builders.HTMLBuilder;
-import com.atlauncher.constants.UIConstants;
 import com.atlauncher.data.Pack;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.data.minecraft.VersionManifestVersionType;
 import com.atlauncher.gui.card.NilCard;
-import com.atlauncher.gui.card.packbrowser.ATLauncherPackCard;
+import com.atlauncher.gui.card.packbrowser.PackCard;
+import com.atlauncher.gui.dialogs.InstanceInstallerDialog;
 import com.atlauncher.managers.PackManager;
+import com.atlauncher.network.Analytics;
+import com.atlauncher.network.analytics.AnalyticsEvent;
 
 public class ATLauncherPacksPanel extends PackBrowserPlatformPanel {
     private final List<Pack> packs = new ArrayList<>();
-    private final List<ATLauncherPackCard> cards = new ArrayList<>();
+    private final List<PackCard> cards = new ArrayList<>();
 
     private void loadPacksToShow(String minecraftVersion, String sort, boolean sortDescending, String searchText) {
         List<Pack> packs = sort.equalsIgnoreCase("name") ? PackManager.getPacksSortedAlphabetically(false,
@@ -68,6 +72,35 @@ public class ATLauncherPacksPanel extends PackBrowserPlatformPanel {
         }).collect(Collectors.toList()));
     }
 
+    /**
+     * A properly-scaling image component for a Pack's icon - unlike PackImagePanel (which
+     * always draws at a fixed 300x150 regardless of its actual bounds and gets clipped when
+     * resized), this scales its drawing to whatever size it's actually given, matching how
+     * BackgroundImageLabel behaves for every other source.
+     */
+    private static JComponent buildPackImage(Pack pack) {
+        Image image = pack.getImage().getImage();
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.drawImage(image, 0, 0, getWidth(), getHeight(), null);
+            }
+        };
+        panel.setOpaque(false);
+        return panel;
+    }
+
+    private PackCard buildCard(Pack pack) {
+        String description = new HTMLBuilder().text(pack.getDescription()).build();
+        return new PackCard(pack.name, buildPackImage(pack), description, "atlauncher",
+                () -> {
+                    Analytics.trackEvent(AnalyticsEvent.forPackInstall(pack));
+                    new InstanceInstallerDialog(pack).setVisible(true);
+                },
+                pack.getWebsiteURL());
+    }
+
     @Override
     protected void loadPacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
             boolean sortDescending, String search, int page) {
@@ -84,28 +117,19 @@ public class ATLauncherPacksPanel extends PackBrowserPlatformPanel {
             boolean sortDescending, String search,
             int page) {
         this.packs.stream().skip(this.cards.size()).limit(10)
-                .forEach(pack -> this.cards.add(new ATLauncherPackCard(pack)));
+                .forEach(pack -> this.cards.add(buildCard(pack)));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.insets = UIConstants.FIELD_INSETS;
-        gbc.fill = GridBagConstraints.BOTH;
+        contentPanel.removeAll();
 
-        int count = 0;
-        for (ATLauncherPackCard card : this.cards) {
-            contentPanel.add(card, gbc);
-            gbc.gridy++;
-            count++;
+        for (PackCard card : this.cards) {
+            contentPanel.add(card);
         }
 
-        if (count == 0) {
+        if (this.cards.isEmpty()) {
             contentPanel.add(
                     new NilCard(new HTMLBuilder().text(GetText
                             .tr("There are no packs to display.<br/><br/>Try removing your search query and try again."))
-                            .build()),
-                    gbc);
+                            .build()));
         }
     }
 

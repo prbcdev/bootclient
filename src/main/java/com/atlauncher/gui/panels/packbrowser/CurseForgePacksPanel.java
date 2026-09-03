@@ -17,14 +17,13 @@
  */
 package com.atlauncher.gui.panels.packbrowser;
 
-import java.awt.GridBagConstraints;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
 
@@ -34,11 +33,13 @@ import com.atlauncher.App;
 import com.atlauncher.builders.HTMLBuilder;
 import com.atlauncher.constants.Constants;
 import com.atlauncher.constants.UIConstants;
+import com.atlauncher.data.curseforge.CurseForgeAttachment;
 import com.atlauncher.data.curseforge.CurseForgeProject;
 import com.atlauncher.data.minecraft.VersionManifestVersion;
 import com.atlauncher.data.minecraft.VersionManifestVersionType;
 import com.atlauncher.gui.card.NilCard;
-import com.atlauncher.gui.card.packbrowser.CurseForgePackCard;
+import com.atlauncher.gui.card.packbrowser.PackCard;
+import com.atlauncher.gui.components.BackgroundImageLabel;
 import com.atlauncher.gui.dialogs.InstanceInstallerDialog;
 import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.managers.AccountManager;
@@ -50,9 +51,26 @@ import com.atlauncher.network.analytics.AnalyticsEvent;
 import com.atlauncher.utils.CurseForgeApi;
 
 public class CurseForgePacksPanel extends PackBrowserPlatformPanel {
-    GridBagConstraints gbc = new GridBagConstraints();
-
     boolean hasMorePages = true;
+
+    private PackCard buildCard(CurseForgeProject project) {
+        String imageUrl = null;
+        Optional<CurseForgeAttachment> attachment = project.getLogo();
+        if (attachment.isPresent()) {
+            imageUrl = attachment.get().thumbnailUrl;
+        }
+
+        BackgroundImageLabel image = new BackgroundImageLabel(imageUrl, PackCard.CARD_WIDTH, PackCard.IMAGE_HEIGHT);
+
+        String description = new HTMLBuilder().text(project.summary).build();
+
+        return new PackCard(project.name, image, description, "curseforge",
+                () -> {
+                    Analytics.trackEvent(AnalyticsEvent.forPackInstall(project));
+                    new InstanceInstallerDialog(project).setVisible(true);
+                },
+                project.getWebsiteUrl());
+    }
 
     @Override
     protected void loadPacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
@@ -62,31 +80,19 @@ public class CurseForgePacksPanel extends PackBrowserPlatformPanel {
 
         hasMorePages = packs != null && packs.size() == Constants.CURSEFORGE_PAGINATION_SIZE;
 
+        contentPanel.removeAll();
+
         if (packs == null || packs.isEmpty()) {
             hasMorePages = false;
-            contentPanel.removeAll();
             contentPanel.add(
                     new NilCard(new HTMLBuilder().text(GetText
                             .tr("There are no packs to display.<br/><br/>Try removing your search query and try again."))
-                            .build()),
-                    gbc);
+                            .build()));
             return;
         }
 
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.insets = UIConstants.FIELD_INSETS;
-        gbc.fill = GridBagConstraints.BOTH;
-
-        List<CurseForgePackCard> cards = packs.stream().map(CurseForgePackCard::new)
-                .collect(Collectors.toList());
-
-        contentPanel.removeAll();
-
-        for (CurseForgePackCard card : cards) {
-            contentPanel.add(card, gbc);
-            gbc.gridy++;
+        for (CurseForgeProject pack : packs) {
+            contentPanel.add(buildCard(pack));
         }
     }
 
@@ -100,8 +106,7 @@ public class CurseForgePacksPanel extends PackBrowserPlatformPanel {
 
         if (packs != null) {
             for (CurseForgeProject pack : packs) {
-                contentPanel.add(new CurseForgePackCard(pack), gbc);
-                gbc.gridy++;
+                contentPanel.add(buildCard(pack));
             }
         }
     }

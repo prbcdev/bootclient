@@ -20,14 +20,14 @@ package com.atlauncher.viewmodel.impl.settings;
 import com.atlauncher.App;
 import com.atlauncher.evnt.listener.SettingsListener;
 import com.atlauncher.evnt.manager.SettingsManager;
-import com.atlauncher.gui.tabs.settings.LoggingSettingsTab;
+import com.atlauncher.gui.tabs.settings.BackupsAndLoggingSettingsTab;
 import com.gitlab.doomsdayrs.lib.rxswing.schedulers.SwingSchedulers;
 
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.BehaviorSubject;
 
 /**
- * View model for {@link LoggingSettingsTab}
+ * View model for {@link BackupsAndLoggingSettingsTab}
  */
 public class LoggingSettingsViewModel implements SettingsListener {
     private final BehaviorSubject<Boolean>

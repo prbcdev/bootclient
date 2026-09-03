@@ -18,7 +18,6 @@
 package com.atlauncher.gui.panels.packbrowser;
 
 import java.awt.BorderLayout;
-import java.awt.GridBagConstraints;
 import java.util.List;
 import java.util.Map;
 
@@ -77,17 +76,11 @@ public abstract class PackBrowserPlatformPanel extends JPanel {
         contentPanel.removeAll();
 
         // add in a loading state
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.BOTH;
-
         if (getPlatformName().equals("UnifiedModPackSearch")) {
-            contentPanel.add(new LoadingPanel(GetText.tr("Searching For Packs...")), gbc);
+            contentPanel.add(new LoadingPanel(GetText.tr("Searching For Packs...")));
         } else {
             // #. {0} is the platform name (ATLauncher, CurseForge, Technic, etc)
-            contentPanel.add(new LoadingPanel(GetText.tr("Loading {0} Packs...", getPlatformName())), gbc);
+            contentPanel.add(new LoadingPanel(GetText.tr("Loading {0} Packs...", getPlatformName())));
         }
 
         contentPanel.revalidate();

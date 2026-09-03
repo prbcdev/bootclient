@@ -17,14 +17,12 @@
  */
 package com.atlauncher.gui.panels.packbrowser;
 
-import java.awt.GridBagConstraints;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
 
@@ -40,7 +38,8 @@ import com.atlauncher.data.modrinth.ModrinthProjectType;
 import com.atlauncher.data.modrinth.ModrinthSearchHit;
 import com.atlauncher.data.modrinth.ModrinthSearchResult;
 import com.atlauncher.gui.card.NilCard;
-import com.atlauncher.gui.card.packbrowser.ModrinthPackCard;
+import com.atlauncher.gui.card.packbrowser.PackCard;
+import com.atlauncher.gui.components.BackgroundImageLabel;
 import com.atlauncher.gui.dialogs.InstanceInstallerDialog;
 import com.atlauncher.gui.dialogs.ProgressDialog;
 import com.atlauncher.managers.AccountManager;
@@ -53,9 +52,20 @@ import com.atlauncher.utils.ModrinthApi;
 import com.atlauncher.utils.Utils;
 
 public class ModrinthPacksPanel extends PackBrowserPlatformPanel {
-    GridBagConstraints gbc = new GridBagConstraints();
-
     boolean hasMorePages = true;
+
+    private PackCard buildCard(ModrinthSearchHit hit) {
+        BackgroundImageLabel image = new BackgroundImageLabel(hit.iconUrl, PackCard.CARD_WIDTH, PackCard.IMAGE_HEIGHT);
+        String description = new HTMLBuilder().text(hit.description).build();
+        String websiteUrl = String.format("https://modrinth.com/modpack/%s", hit.slug);
+
+        return new PackCard(hit.title, image, description, "modrinth",
+                () -> {
+                    Analytics.trackEvent(AnalyticsEvent.forPackInstall(hit));
+                    new InstanceInstallerDialog(hit, false).setVisible(true);
+                },
+                websiteUrl);
+    }
 
     @Override
     protected void loadPacks(JPanel contentPanel, String minecraftVersion, String category, String sort,
@@ -65,30 +75,18 @@ public class ModrinthPacksPanel extends PackBrowserPlatformPanel {
 
         hasMorePages = searchResult != null && searchResult.offset + searchResult.hits.size() < searchResult.totalHits;
 
+        contentPanel.removeAll();
+
         if (searchResult == null || searchResult.hits.isEmpty()) {
-            contentPanel.removeAll();
             contentPanel.add(
                 new NilCard(new HTMLBuilder().text(GetText
                         .tr("There are no packs to display.<br/><br/>Try removing your search query and try again."))
-                    .build()),
-                gbc);
+                    .build()));
             return;
         }
 
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.insets = UIConstants.FIELD_INSETS;
-        gbc.fill = GridBagConstraints.BOTH;
-
-        List<ModrinthPackCard> cards = searchResult.hits.stream().map(ModrinthPackCard::new)
-            .collect(Collectors.toList());
-
-        contentPanel.removeAll();
-
-        for (ModrinthPackCard card : cards) {
-            contentPanel.add(card, gbc);
-            gbc.gridy++;
+        for (ModrinthSearchHit hit : searchResult.hits) {
+            contentPanel.add(buildCard(hit));
         }
     }
 
@@ -101,9 +99,8 @@ public class ModrinthPacksPanel extends PackBrowserPlatformPanel {
         hasMorePages = searchResult != null && searchResult.offset + searchResult.hits.size() < searchResult.totalHits;
 
         if (searchResult != null) {
-            for (ModrinthSearchHit pack : searchResult.hits) {
-                contentPanel.add(new ModrinthPackCard(pack), gbc);
-                gbc.gridy++;
+            for (ModrinthSearchHit hit : searchResult.hits) {
+                contentPanel.add(buildCard(hit));
             }
         }
     }
